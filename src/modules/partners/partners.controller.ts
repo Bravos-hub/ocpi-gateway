@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { CreatePartnerDto } from './dto/create-partner.dto'
 import { UpdatePartnerDto } from './dto/update-partner.dto'
 import { PartnersService } from './partners.service'
+import { InternalAdminGuard } from './internal-admin.guard'
 
 @Controller('partners')
+@UseGuards(InternalAdminGuard)
 export class PartnersController {
   constructor(private readonly partners: PartnersService) {}
 

@@ -3,6 +3,7 @@ OCPI Internal Backend Contracts
 Purpose
 - This file documents the internal backend API contracts expected by `ocpi-gateway`.
 - Backend remains the source of truth; gateway is protocol facade and orchestrator.
+- Base path: `/api/v1` is expected on backend internal OCPI routes.
 
 Existing Contracts Used
 - `GET/POST/PATCH /internal/ocpi/partners`
@@ -37,6 +38,9 @@ New Contracts Required by Full OCPI Scope
 - `POST /internal/ocpi/partner-tariffs/delete`
 - CDR object fetch:
 - `GET /internal/ocpi/cdrs/{cdrId}`
+
+Core v1 Scope
+- `ChargingProfiles` and `HubClientInfo` are intentionally disabled for core v1 and should return deterministic `module not supported` behavior when hit.
 
 Partner Object Extensions Expected
 - `version`

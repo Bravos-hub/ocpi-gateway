@@ -37,6 +37,7 @@ export default () => ({
   },
   backend: {
     baseUrl: process.env.EVZONE_BACKEND_URL || '',
+    apiPrefix: process.env.EVZONE_BACKEND_API_PREFIX || '/api/v1',
     tokenPath: process.env.EVZONE_BACKEND_TOKEN_PATH || '/auth/service/token',
     clientId: process.env.EVZONE_SERVICE_CLIENT_ID || '',
     clientSecret: process.env.EVZONE_SERVICE_CLIENT_SECRET || '',
@@ -68,10 +69,16 @@ export default () => ({
     enableModuleCommands:
       (process.env.OCPI_ENABLE_MODULE_COMMANDS || 'true').trim().toLowerCase() === 'true',
     enableModuleChargingProfiles:
-      (process.env.OCPI_ENABLE_MODULE_CHARGINGPROFILES || 'true').trim().toLowerCase() ===
+      (process.env.OCPI_ENABLE_MODULE_CHARGINGPROFILES || 'false').trim().toLowerCase() ===
       'true',
     enableModuleHubClientInfo:
-      (process.env.OCPI_ENABLE_MODULE_HUBCLIENTINFO || 'true').trim().toLowerCase() ===
+      (process.env.OCPI_ENABLE_MODULE_HUBCLIENTINFO || 'false').trim().toLowerCase() ===
       'true',
+  },
+  admin: {
+    token: process.env.OCPI_ADMIN_TOKEN || process.env.INTERNAL_ADMIN_TOKEN || '',
+    serviceJwtSecret: process.env.JWT_SERVICE_SECRET || '',
+    serviceJwtIssuer: process.env.JWT_SERVICE_ISSUER || '',
+    serviceJwtAudience: process.env.JWT_SERVICE_AUDIENCE || '',
   },
 })

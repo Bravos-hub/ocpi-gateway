@@ -15,6 +15,8 @@ export class EvzoneApiService {
   private readonly logger = new Logger(EvzoneApiService.name)
   private readonly client: AxiosInstance
   private readonly baseUrl: string
+  private readonly apiPrefix: string
+  private readonly baseHasApiPrefix: boolean
   private readonly tokenPath: string
   private readonly clientId: string
   private readonly clientSecret: string
@@ -26,6 +28,8 @@ export class EvzoneApiService {
 
   constructor(private readonly config: ConfigService) {
     this.baseUrl = (this.config.get<string>('backend.baseUrl') || '').replace(/\/$/, '')
+    this.apiPrefix = this.normalizeApiPrefix(this.config.get<string>('backend.apiPrefix') || '/api/v1')
+    this.baseHasApiPrefix = this.detectBasePrefix(this.baseUrl, this.apiPrefix)
     this.tokenPath = this.config.get<string>('backend.tokenPath') || '/auth/service/token'
     this.clientId = this.config.get<string>('backend.clientId') || ''
     this.clientSecret = this.config.get<string>('backend.clientSecret') || ''
@@ -43,19 +47,19 @@ export class EvzoneApiService {
   }
 
   async get<T>(path: string, params?: Record<string, unknown>) {
-    return this.request<T>({ method: 'GET', url: path, params })
+    return this.request<T>({ method: 'GET', url: this.withApiPrefix(path), params })
   }
 
   async post<T>(path: string, data?: unknown) {
-    return this.request<T>({ method: 'POST', url: path, data })
+    return this.request<T>({ method: 'POST', url: this.withApiPrefix(path), data })
   }
 
   async put<T>(path: string, data?: unknown) {
-    return this.request<T>({ method: 'PUT', url: path, data })
+    return this.request<T>({ method: 'PUT', url: this.withApiPrefix(path), data })
   }
 
   async patch<T>(path: string, data?: unknown) {
-    return this.request<T>({ method: 'PATCH', url: path, data })
+    return this.request<T>({ method: 'PATCH', url: this.withApiPrefix(path), data })
   }
 
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
@@ -85,8 +89,9 @@ export class EvzoneApiService {
     }
 
     const basic = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
+    const tokenPath = this.withApiPrefix(this.tokenPath)
     const response = await this.client.post<ServiceTokenResponse>(
-      this.tokenPath,
+      tokenPath,
       {
         clientId: this.clientId,
         clientSecret: this.clientSecret,
@@ -142,6 +147,45 @@ export class EvzoneApiService {
         return value * 24 * 60 * 60 * 1000
       default:
         return 5 * 60 * 1000
+    }
+  }
+
+  private withApiPrefix(path: string): string {
+    if (/^https?:\/\//i.test(path)) {
+      return path
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    if (!this.apiPrefix || this.baseHasApiPrefix) {
+      return normalizedPath
+    }
+
+    if (
+      normalizedPath === this.apiPrefix ||
+      normalizedPath.startsWith(`${this.apiPrefix}/`)
+    ) {
+      return normalizedPath
+    }
+
+    return `${this.apiPrefix}${normalizedPath}`
+  }
+
+  private normalizeApiPrefix(value: string): string {
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    if (trimmed === '/') return ''
+    const prefixed = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+    return prefixed.endsWith('/') ? prefixed.slice(0, -1) : prefixed
+  }
+
+  private detectBasePrefix(baseUrl: string, apiPrefix: string): boolean {
+    if (!baseUrl || !apiPrefix) return false
+    try {
+      const parsed = new URL(baseUrl)
+      const pathname = parsed.pathname.replace(/\/$/, '')
+      return pathname === apiPrefix || pathname.endsWith(apiPrefix)
+    } catch {
+      return false
     }
   }
 }
