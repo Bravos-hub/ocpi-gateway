@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { CreatePartnerDto } from './dto/create-partner.dto'
+import { PartnerObservabilityConsumer } from './partner-observability.consumer'
+import { PartnerObservabilityService } from './partner-observability.service'
 import { UpdatePartnerDto } from './dto/update-partner.dto'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
 
 @Injectable()
 export class PartnersService {
-  constructor(private readonly backend: EvzoneApiService) {}
+  constructor(
+    private readonly backend: EvzoneApiService,
+    private readonly observabilityConsumer: PartnerObservabilityConsumer,
+    private readonly observability: PartnerObservabilityService
+  ) {}
 
   async create(dto: CreatePartnerDto) {
     return this.backend.post('/internal/ocpi/partners', {
@@ -92,5 +98,40 @@ export class PartnersService {
       version: args.version || '2.2.1',
       lastSyncAt: new Date().toISOString(),
     })
+  }
+
+  async getObservabilityOverview(limit?: number) {
+    const [partners, summaries] = await Promise.all([
+      this.findAll(),
+      this.observability.listPartnerObservability(limit),
+    ])
+
+    const rows = Array.isArray(partners) ? partners : []
+    const partnersById = new Map(
+      rows
+        .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+        .map((row) => [String(row.id || ''), row])
+    )
+
+    return {
+      monitoring: this.observabilityConsumer.getStatus(),
+      partners: summaries.map((summary) => ({
+        partner: partnersById.get(summary.partnerId) || null,
+        observability: summary,
+      })),
+    }
+  }
+
+  async getObservability(id: string, limit?: number) {
+    const [partner, observability] = await Promise.all([
+      this.findOne(id),
+      this.observability.getPartnerObservability(id, limit),
+    ])
+
+    return {
+      monitoring: this.observabilityConsumer.getStatus(),
+      partner,
+      observability,
+    }
   }
 }

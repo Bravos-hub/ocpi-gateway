@@ -17,8 +17,9 @@ export class KafkaService implements OnModuleDestroy {
 
   async getProducer(): Promise<Producer> {
     if (!this.producer) {
-      this.producer = this.kafka.producer()
-      await this.producer.connect()
+      const producer = this.kafka.producer()
+      await producer.connect()
+      this.producer = producer
       this.logger.log('Kafka producer connected')
     }
     return this.producer
@@ -26,8 +27,9 @@ export class KafkaService implements OnModuleDestroy {
 
   async getConsumer(groupId?: string): Promise<Consumer> {
     if (!this.consumer) {
-      this.consumer = this.kafka.consumer({ groupId: groupId || 'ocpi-gateway' })
-      await this.consumer.connect()
+      const consumer = this.kafka.consumer({ groupId: groupId || 'ocpi-gateway' })
+      await consumer.connect()
+      this.consumer = consumer
       this.logger.log('Kafka consumer connected')
     }
     return this.consumer
