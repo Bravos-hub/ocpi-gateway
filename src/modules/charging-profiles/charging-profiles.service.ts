@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 @Injectable()
 export class ChargingProfilesService {
   constructor(
     private readonly backend: EvzoneApiService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
@@ -46,15 +48,28 @@ export class ChargingProfilesService {
       return { result: 'ACCEPTED' }
     }
 
-    return this.backend.put('/internal/ocpi/charging-profiles/set', {
+    const requestedAt = new Date().toISOString()
+    const response = await this.backend.put('/internal/ocpi/charging-profiles/set', {
       version: args.version,
       role: args.role,
       sessionId: args.sessionId,
       request: args.request,
       correlationId: args.correlationId,
       partnerId: args.partnerId || null,
-      requestedAt: new Date().toISOString(),
+      requestedAt,
     })
+
+    void this.events.publishChargingProfileEvent({
+      eventType: 'ocpi.chargingprofile.set.request',
+      correlationId: args.correlationId,
+      partnerId: args.partnerId,
+      role: args.role,
+      sessionId: args.sessionId,
+      payload: args.request,
+      occurredAt: requestedAt,
+    })
+
+    return response
   }
 
   async clearChargingProfile(args: {
@@ -77,15 +92,28 @@ export class ChargingProfilesService {
       return { result: 'ACCEPTED' }
     }
 
-    return this.backend.post('/internal/ocpi/charging-profiles/clear', {
+    const requestedAt = new Date().toISOString()
+    const response = await this.backend.post('/internal/ocpi/charging-profiles/clear', {
       version: args.version,
       role: args.role,
       sessionId: args.sessionId,
       responseUrl: args.responseUrl || null,
       correlationId: args.correlationId,
       partnerId: args.partnerId || null,
-      requestedAt: new Date().toISOString(),
+      requestedAt,
     })
+
+    void this.events.publishChargingProfileEvent({
+      eventType: 'ocpi.chargingprofile.clear.request',
+      correlationId: args.correlationId,
+      partnerId: args.partnerId,
+      role: args.role,
+      sessionId: args.sessionId,
+      payload: args.responseUrl ? { responseUrl: args.responseUrl } : undefined,
+      occurredAt: requestedAt,
+    })
+
+    return response
   }
 
   async receiveAsyncResult(args: {
@@ -109,15 +137,29 @@ export class ChargingProfilesService {
       return { duplicated: true }
     }
 
-    return this.backend.post('/internal/ocpi/charging-profiles/results', {
+    const occurredAt = new Date().toISOString()
+    const response = await this.backend.post('/internal/ocpi/charging-profiles/results', {
       version: args.version,
       role: args.role,
       sessionId: args.sessionId,
       requestId: args.requestId,
       result: args.result,
       partnerId: args.partnerId || null,
-      occurredAt: new Date().toISOString(),
+      occurredAt,
     })
+
+    void this.events.publishChargingProfileEvent({
+      eventType: 'ocpi.chargingprofile.result',
+      correlationId: args.requestId,
+      partnerId: args.partnerId,
+      role: args.role,
+      sessionId: args.sessionId,
+      requestId: args.requestId,
+      payload: args.result,
+      occurredAt,
+    })
+
+    return response
   }
 
   async upsertActiveProfile(args: {
@@ -127,13 +169,25 @@ export class ChargingProfilesService {
     profile: Record<string, unknown>
     partnerId?: string
   }) {
-    return this.backend.put('/internal/ocpi/charging-profiles/active', {
+    const updatedAt = new Date().toISOString()
+    const response = await this.backend.put('/internal/ocpi/charging-profiles/active', {
       version: args.version,
       role: args.role,
       sessionId: args.sessionId,
       profile: args.profile,
       partnerId: args.partnerId || null,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
     })
+
+    void this.events.publishChargingProfileEvent({
+      eventType: 'ocpi.chargingprofile.active.update',
+      partnerId: args.partnerId,
+      role: args.role,
+      sessionId: args.sessionId,
+      payload: args.profile,
+      occurredAt: updatedAt,
+    })
+
+    return response
   }
 }

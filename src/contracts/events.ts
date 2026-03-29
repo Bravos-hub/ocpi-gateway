@@ -17,16 +17,16 @@ export type OcpiEvent = {
 export type OcpiCommandRequest = {
   requestId: string
   tenantId?: string
-  partnerId: string
+  partnerId?: string
   command: string
-  responseUrl: string
+  responseUrl?: string
   payload: Record<string, unknown>
   requestedAt: string
 }
 
 export type OcpiCommandEvent = {
   requestId: string
-  partnerId: string
+  partnerId?: string
   command: string
   result: string
   occurredAt: string
@@ -48,4 +48,3 @@ export type OcpiCdrEvent = {
   occurredAt: string
   payload?: Record<string, unknown>
 }
-

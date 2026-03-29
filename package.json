@@ -7,7 +7,9 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "lint": "eslint \"{src,test,scripts}/**/*.ts\" --max-warnings=0",
-    "test": "ts-node scripts/contract-selftest.ts"
+    "test": "npm run test:contracts && npm run test:events",
+    "test:contracts": "ts-node scripts/contract-selftest.ts",
+    "test:events": "ts-node scripts/ocpi-event-publisher-selftest.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
