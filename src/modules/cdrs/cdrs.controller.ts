@@ -45,7 +45,7 @@ export class CdrsController {
   }
 
   @Get(':role/2.2.1/cdrs')
-  async listV221(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.cdrs.listCdrs()
     const paginated = paginateOcpiList(
       res.req,
@@ -57,7 +57,7 @@ export class CdrsController {
   }
 
   @Get(':role/2.1.1/cdrs')
-  async listV211(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.cdrs.listCdrs()
     const paginated = paginateOcpiList(
       res.req,

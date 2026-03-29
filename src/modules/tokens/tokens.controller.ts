@@ -23,7 +23,7 @@ export class TokensController {
   constructor(private readonly tokens: TokensService) {}
 
   @Get(':role/2.2.1/tokens')
-  async listV221(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.tokens.getTokens('2.2.1')
     const paginated = paginateOcpiList(
       res.req,
@@ -35,7 +35,7 @@ export class TokensController {
   }
 
   @Get(':role/2.1.1/tokens')
-  async listV211(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.tokens.getTokens('2.1.1')
     const paginated = paginateOcpiList(
       res.req,

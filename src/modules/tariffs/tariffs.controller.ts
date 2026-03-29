@@ -21,7 +21,7 @@ export class TariffsController {
   constructor(private readonly tariffs: TariffsService) {}
 
   @Get(':role/2.2.1/tariffs')
-  async listV221(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.tariffs.getTariffs('2.2.1')
     const paginated = paginateOcpiList(
       res.req,
@@ -55,7 +55,7 @@ export class TariffsController {
   }
 
   @Get(':role/2.1.1/tariffs')
-  async listV211(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.tariffs.getTariffs('2.1.1')
     const paginated = paginateOcpiList(
       res.req,

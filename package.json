@@ -6,7 +6,8 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "build": "nest build",
-    "lint": "eslint \"{src,test}/**/*.ts\""
+    "lint": "eslint \"{src,test,scripts}/**/*.ts\" --max-warnings=0",
+    "test": "ts-node scripts/contract-selftest.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

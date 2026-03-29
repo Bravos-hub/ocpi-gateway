@@ -15,7 +15,7 @@ export class HubClientInfoController {
   ) {}
 
   @Get(':role/2.2.1/hubclientinfo')
-  async listV221(@Param('role') role: string, @Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Param('role') role: string, @Res({ passthrough: true }) res: Response, @Query() _query: any) {
     if (!this.isEnabled()) {
       res.status(HttpStatus.NOT_IMPLEMENTED)
       return this.notSupported()
@@ -31,7 +31,7 @@ export class HubClientInfoController {
   }
 
   @Get(':role/2.1.1/hubclientinfo')
-  async listV211(@Param('role') role: string, @Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Param('role') role: string, @Res({ passthrough: true }) res: Response, @Query() _query: any) {
     if (!this.isEnabled()) {
       res.status(HttpStatus.NOT_IMPLEMENTED)
       return this.notSupported()

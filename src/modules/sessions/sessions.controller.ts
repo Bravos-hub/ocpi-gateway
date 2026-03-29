@@ -21,7 +21,7 @@ export class SessionsController {
   constructor(private readonly sessions: SessionsService) {}
 
   @Get(':role/2.2.1/sessions')
-  async listV221(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.sessions.getSessions('2.2.1')
     const paginated = paginateOcpiList(
       res.req,
@@ -76,7 +76,7 @@ export class SessionsController {
   }
 
   @Get(':role/2.1.1/sessions')
-  async listV211(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.sessions.getSessions('2.1.1')
     const paginated = paginateOcpiList(
       res.req,

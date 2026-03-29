@@ -11,7 +11,7 @@ export class LocationsController {
   constructor(private readonly locations: LocationsService) {}
 
   @Get(':role/2.2.1/locations')
-  async listV221(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.locations.getLocationsForVersion('2.2.1')
     const paginated = paginateOcpiList(
       res.req,
@@ -23,7 +23,7 @@ export class LocationsController {
   }
 
   @Get(':role/2.1.1/locations')
-  async listV211(@Res({ passthrough: true }) res: Response, @Query() query: any) {
+  async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
     const data = await this.locations.getLocationsForVersion('2.1.1')
     const paginated = paginateOcpiList(
       res.req,
