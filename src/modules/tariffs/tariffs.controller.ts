@@ -22,7 +22,13 @@ export class TariffsController {
 
   @Get(':role/2.2.1/tariffs')
   async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.tariffs.getTariffs('2.2.1')
+    const data = await this.tariffs.getTariffs({
+      version: '2.2.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -35,10 +41,15 @@ export class TariffsController {
   @Put(':role/2.2.1/tariffs/:countryCode/:partyId/:tariffId')
   async putV221(
     @Param() params: any,
-    @Body() body: Record<string, unknown>
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
   ) {
     await this.tariffs.upsertPartnerTariff({
       version: '2.2.1',
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
       countryCode: params.countryCode,
       partyId: params.partyId,
       tariffId: params.tariffId,
@@ -48,15 +59,27 @@ export class TariffsController {
   }
 
   @Get(':role/2.2.1/tariffs/:tariffId')
-  async getV221(@Param('tariffId') tariffId: string) {
-    const data = await this.tariffs.getTariffs('2.2.1')
-    const item = data.find((tariff: unknown) => (tariff as { id?: string }).id === tariffId)
-    return ocpiSuccess(item || null)
+  async getV221(@Param() params: any, @Res({ passthrough: true }) res: Response) {
+    const data = await this.tariffs.getTariff({
+      version: '2.2.1',
+      tariffId: params.tariffId,
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
+    return ocpiSuccess(data)
   }
 
   @Get(':role/2.1.1/tariffs')
   async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.tariffs.getTariffs('2.1.1')
+    const data = await this.tariffs.getTariffs({
+      version: '2.1.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -69,10 +92,15 @@ export class TariffsController {
   @Put(':role/2.1.1/tariffs/:countryCode/:partyId/:tariffId')
   async putV211(
     @Param() params: any,
-    @Body() body: Record<string, unknown>
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
   ) {
     await this.tariffs.upsertPartnerTariff({
       version: '2.1.1',
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
       countryCode: params.countryCode,
       partyId: params.partyId,
       tariffId: params.tariffId,
@@ -82,16 +110,26 @@ export class TariffsController {
   }
 
   @Get(':role/2.1.1/tariffs/:tariffId')
-  async getV211(@Param('tariffId') tariffId: string) {
-    const data = await this.tariffs.getTariffs('2.1.1')
-    const item = data.find((tariff: unknown) => (tariff as { id?: string }).id === tariffId)
-    return ocpiSuccess(item || null)
+  async getV211(@Param() params: any, @Res({ passthrough: true }) res: Response) {
+    const data = await this.tariffs.getTariff({
+      version: '2.1.1',
+      tariffId: params.tariffId,
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
+    return ocpiSuccess(data)
   }
 
   @Delete(':role/2.2.1/tariffs/:countryCode/:partyId/:tariffId')
-  async deleteV221(@Param() params: any) {
+  async deleteV221(@Param() params: any, @Res({ passthrough: true }) res: Response) {
     await this.tariffs.deletePartnerTariff({
       version: '2.2.1',
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
       countryCode: params.countryCode,
       partyId: params.partyId,
       tariffId: params.tariffId,
@@ -100,9 +138,13 @@ export class TariffsController {
   }
 
   @Delete(':role/2.1.1/tariffs/:countryCode/:partyId/:tariffId')
-  async deleteV211(@Param() params: any) {
+  async deleteV211(@Param() params: any, @Res({ passthrough: true }) res: Response) {
     await this.tariffs.deletePartnerTariff({
       version: '2.1.1',
+      role: `${params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
       countryCode: params.countryCode,
       partyId: params.partyId,
       tariffId: params.tariffId,

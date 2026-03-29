@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 type BackendSession = {
@@ -21,26 +22,83 @@ export class SessionsService {
   constructor(
     private readonly backend: EvzoneApiService,
     private readonly config: ConfigService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
-  async getSessions(version: '2.2.1' | '2.1.1') {
+  async getSessions(args: {
+    version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
     const sessions = await this.backend.get<BackendSession[]>('/internal/ocpi/sessions')
-    return sessions.map((session) => this.toOcpiSession(session, version))
+    const data = sessions.map((session) => this.toOcpiSession(session, args.version))
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishSessionEvent({
+      eventType: 'ocpi.session.export.list',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        count: data.length,
+      },
+      key: args.requestId,
+    })
+
+    return data
   }
 
-  async getSession(id: string, version: '2.2.1' | '2.1.1') {
+  async getSession(args: {
+    id: string
+    version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
+    const { id, version } = args
     const session = await this.backend.get<BackendSession | null>(`/internal/ocpi/sessions/${id}`)
-    if (!session) return null
-    return this.toOcpiSession(session, version)
+    const data = session ? this.toOcpiSession(session, version) : null
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishSessionEvent({
+      eventType: 'ocpi.session.export.detail',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        sessionId: id,
+        found: !!data,
+        status: this.extractString(data, 'status'),
+      },
+      key: args.requestId || id,
+    })
+
+    return data
   }
 
   async upsertPartnerSession(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
     countryCode: string
     partyId: string
     sessionId: string
     data: Record<string, unknown>
+    isPatch?: boolean
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
   }) {
     const lastUpdated =
       (args.data as { last_updated?: string }).last_updated || new Date().toISOString()
@@ -57,7 +115,7 @@ export class SessionsService {
       return { duplicated: true }
     }
 
-    return this.backend.post('/internal/ocpi/partner-sessions', {
+    const response = await this.backend.post('/internal/ocpi/partner-sessions', {
       countryCode: args.countryCode,
       partyId: args.partyId,
       sessionId: args.sessionId,
@@ -65,18 +123,64 @@ export class SessionsService {
       data: args.data,
       lastUpdated,
     })
+
+    void this.events.publishSessionEvent({
+      eventType: 'ocpi.session.import.upsert',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      countryCode: args.countryCode,
+      partyId: args.partyId,
+      occurredAt: lastUpdated,
+      payload: {
+        version: args.version,
+        sessionId: args.sessionId,
+        operation: args.isPatch ? 'PATCH' : 'PUT',
+        status: this.extractString(args.data, 'status'),
+      },
+      key: args.requestId || args.sessionId,
+    })
+
+    return response
   }
 
   async setChargingPreferences(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
     sessionId: string
     data: Record<string, unknown>
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
   }) {
-    return this.backend.put(`/internal/ocpi/sessions/${args.sessionId}/charging-preferences`, {
+    const updatedAt = new Date().toISOString()
+    const response = await this.backend.put(
+      `/internal/ocpi/sessions/${args.sessionId}/charging-preferences`,
+      {
       version: args.version,
       data: args.data,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
+    }
+    )
+
+    void this.events.publishSessionEvent({
+      eventType: 'ocpi.session.preferences.update',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt: updatedAt,
+      payload: {
+        version: args.version,
+        sessionId: args.sessionId,
+      },
+      key: args.requestId || args.sessionId,
     })
+
+    return response
   }
 
   private toOcpiSession(session: BackendSession, version: '2.2.1' | '2.1.1') {
@@ -134,5 +238,13 @@ export class SessionsService {
     if (normalized === 'ACTIVE') return 'ACTIVE'
     if (['COMPLETED', 'STOPPED'].includes(normalized)) return 'COMPLETED'
     return 'INVALID'
+  }
+
+  private extractString(
+    record: Record<string, unknown> | null | undefined,
+    key: string
+  ): string | undefined {
+    const value = record?.[key]
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
   }
 }

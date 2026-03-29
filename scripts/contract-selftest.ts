@@ -23,7 +23,7 @@ function createService(overrides?: {
     },
   })
 
-  return new OcpiService(config, {} as never, {} as never)
+  return new OcpiService(config, {} as never, {} as never, {} as never)
 }
 
 function endpointIdentifiers(payload: ReturnType<OcpiService['getVersionDetails']>): string[] {

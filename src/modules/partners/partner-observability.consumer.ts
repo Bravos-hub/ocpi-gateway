@@ -8,6 +8,13 @@ const OBSERVED_TOPICS = [
   KAFKA_TOPICS.ocpiCommandRequests,
   KAFKA_TOPICS.ocpiCommandEvents,
   KAFKA_TOPICS.ocpiChargingProfileEvents,
+  KAFKA_TOPICS.ocpiSessionEvents,
+  KAFKA_TOPICS.ocpiCdrEvents,
+  KAFKA_TOPICS.ocpiTariffEvents,
+  KAFKA_TOPICS.ocpiLocationEvents,
+  KAFKA_TOPICS.ocpiTokenEvents,
+  KAFKA_TOPICS.ocpiCredentialEvents,
+  KAFKA_TOPICS.ocpiPartnerEvents,
 ] as const
 
 @Injectable()

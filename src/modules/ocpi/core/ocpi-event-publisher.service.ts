@@ -8,6 +8,22 @@ import {
 import { KAFKA_TOPICS } from '../../../contracts/kafka-topics'
 import { KafkaService } from '../../../platform/kafka.service'
 
+type PublishModuleEventArgs = {
+  topic: string
+  module: string
+  eventType: string
+  role: string
+  direction: 'INBOUND' | 'OUTBOUND'
+  occurredAt: string
+  partnerId?: string
+  correlationId?: string
+  requestId?: string
+  countryCode?: string
+  partyId?: string
+  payload?: Record<string, unknown>
+  key?: string
+}
+
 @Injectable()
 export class OcpiEventPublisherService {
   private readonly logger = new Logger(OcpiEventPublisherService.name)
@@ -90,6 +106,88 @@ export class OcpiEventPublisherService {
       event,
       args.requestId || args.sessionId
     )
+  }
+
+  async publishSessionEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiSessionEvents,
+      module: 'sessions',
+    })
+  }
+
+  async publishCdrEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiCdrEvents,
+      module: 'cdrs',
+    })
+  }
+
+  async publishTariffEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiTariffEvents,
+      module: 'tariffs',
+    })
+  }
+
+  async publishLocationEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiLocationEvents,
+      module: 'locations',
+    })
+  }
+
+  async publishTokenEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiTokenEvents,
+      module: 'tokens',
+    })
+  }
+
+  async publishCredentialEvent(
+    args: Omit<PublishModuleEventArgs, 'topic' | 'module'>
+  ): Promise<void> {
+    await this.publishModuleEvent({
+      ...args,
+      topic: KAFKA_TOPICS.ocpiCredentialEvents,
+      module: 'credentials',
+    })
+  }
+
+  private async publishModuleEvent(args: PublishModuleEventArgs): Promise<void> {
+    const event: OcpiEvent = {
+      eventId: randomUUID(),
+      eventType: args.eventType,
+      source: 'ocpi-gateway',
+      occurredAt: args.occurredAt,
+      ...(args.correlationId ? { correlationId: args.correlationId } : {}),
+      ...(args.partnerId ? { partnerId: args.partnerId } : {}),
+      ...(args.countryCode ? { countryCode: args.countryCode } : {}),
+      ...(args.partyId ? { partyId: args.partyId } : {}),
+      role: args.role,
+      module: args.module,
+      direction: args.direction,
+      payload: {
+        ...(args.requestId ? { requestId: args.requestId } : {}),
+        ...(args.payload || {}),
+      },
+    }
+
+    await this.publishJson(args.topic, event, args.key)
   }
 
   private async publishJson(

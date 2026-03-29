@@ -24,7 +24,13 @@ export class TokensController {
 
   @Get(':role/2.2.1/tokens')
   async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.tokens.getTokens('2.2.1')
+    const data = await this.tokens.getTokens({
+      version: '2.2.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -36,7 +42,13 @@ export class TokensController {
 
   @Get(':role/2.1.1/tokens')
   async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.tokens.getTokens('2.1.1')
+    const data = await this.tokens.getTokens({
+      version: '2.1.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -54,10 +66,14 @@ export class TokensController {
   ) {
     const token = await this.tokens.getPartnerToken({
       version: '2.2.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     if (!token?.data) {
       const payload = ocpiError(2004, 'Unknown Token')
@@ -75,10 +91,14 @@ export class TokensController {
   ) {
     const token = await this.tokens.getPartnerToken({
       version: '2.1.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     if (!token?.data) {
       const payload = ocpiError(2004, 'Unknown Token')
@@ -89,14 +109,24 @@ export class TokensController {
   }
 
   @Put(':role/2.2.1/tokens/:countryCode/:partyId/:tokenUid')
-  async putReceiverV221(@Param() params: any, @Query('type') type: string | undefined, @Body() body: Record<string, unknown>) {
+  async putReceiverV221(
+    @Param() params: any,
+    @Query('type') type: string | undefined,
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
+  ) {
     await this.tokens.upsertPartnerToken({
       version: '2.2.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
       data: body,
+      isPatch: false,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     return ocpiSuccess(body)
   }
@@ -105,28 +135,44 @@ export class TokensController {
   async patchReceiverV221(
     @Param() params: any,
     @Query('type') type: string | undefined,
-    @Body() body: Record<string, unknown>
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
   ) {
     await this.tokens.upsertPartnerToken({
       version: '2.2.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
       data: body,
+      isPatch: true,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     return ocpiSuccess(body)
   }
 
   @Put(':role/2.1.1/tokens/:countryCode/:partyId/:tokenUid')
-  async putReceiverV211(@Param() params: any, @Query('type') type: string | undefined, @Body() body: Record<string, unknown>) {
+  async putReceiverV211(
+    @Param() params: any,
+    @Query('type') type: string | undefined,
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
+  ) {
     await this.tokens.upsertPartnerToken({
       version: '2.1.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
       data: { ...body, country_code: params.countryCode, party_id: params.partyId },
+      isPatch: false,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     return ocpiSuccess(body)
   }
@@ -135,15 +181,21 @@ export class TokensController {
   async patchReceiverV211(
     @Param() params: any,
     @Query('type') type: string | undefined,
-    @Body() body: Record<string, unknown>
+    @Body() body: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response
   ) {
     await this.tokens.upsertPartnerToken({
       version: '2.1.1',
+      role: `${params.role || ''}`.toLowerCase(),
       countryCode: params.countryCode,
       partyId: params.partyId,
       tokenUid: params.tokenUid,
       tokenType: type || 'RFID',
       data: { ...body, country_code: params.countryCode, party_id: params.partyId },
+      isPatch: true,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     return ocpiSuccess(body)
   }
@@ -163,9 +215,14 @@ export class TokensController {
     }
 
     const result = await this.tokens.authorizeToken({
+      version: '2.2.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
       tokenUid,
       tokenType: type || 'RFID',
       location: body,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     if (!result) {
       const payload = ocpiError(2004, 'Unknown Token')
@@ -190,9 +247,14 @@ export class TokensController {
     }
 
     const result = await this.tokens.authorizeToken({
+      version: '2.1.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
       tokenUid,
       tokenType: type || 'RFID',
       location: body,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
     })
     if (!result) {
       const payload = ocpiError(2004, 'Unknown Token')

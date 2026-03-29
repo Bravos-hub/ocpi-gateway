@@ -4,15 +4,45 @@ import { OcpiCommandEvent, OcpiCommandRequest, OcpiEvent } from '../../contracts
 import { KAFKA_TOPICS } from '../../contracts/kafka-topics'
 import { RedisService } from '../../platform/redis.service'
 
+type CounterMetric =
+  | 'commandRequests'
+  | 'commandResults'
+  | 'commandAccepted'
+  | 'commandRejected'
+  | 'commandFailed'
+  | 'commandTimeout'
+  | 'chargingProfileEvents'
+  | 'sessionEvents'
+  | 'cdrEvents'
+  | 'tariffEvents'
+  | 'locationEvents'
+  | 'tokenEvents'
+  | 'credentialEvents'
+  | 'partnerEvents'
+
 type PartnerObservabilitySummary = {
   partnerId: string
   lastActivityAt: string | null
   lastCommandRequestAt: string | null
   lastCommandResultAt: string | null
   lastChargingProfileEventAt: string | null
+  lastSessionEventAt: string | null
+  lastCdrEventAt: string | null
+  lastTariffEventAt: string | null
+  lastLocationEventAt: string | null
+  lastTokenEventAt: string | null
+  lastCredentialEventAt: string | null
+  lastPartnerEventAt: string | null
   latestCommand: string | null
   latestCommandResult: string | null
   latestChargingProfileEventType: string | null
+  latestSessionEventType: string | null
+  latestCdrEventType: string | null
+  latestTariffEventType: string | null
+  latestLocationEventType: string | null
+  latestTokenEventType: string | null
+  latestCredentialEventType: string | null
+  latestPartnerEventType: string | null
   counts: {
     commandRequests: number
     commandResults: number
@@ -21,12 +51,31 @@ type PartnerObservabilitySummary = {
     commandFailed: number
     commandTimeout: number
     chargingProfileEvents: number
+    sessionEvents: number
+    cdrEvents: number
+    tariffEvents: number
+    locationEvents: number
+    tokenEvents: number
+    credentialEvents: number
+    partnerEvents: number
   }
 }
 
 type PartnerRecentEvent = {
-  kind: 'command.request' | 'command.result' | 'chargingprofile'
+  kind:
+    | 'command.request'
+    | 'command.result'
+    | 'chargingprofile'
+    | 'session'
+    | 'cdr'
+    | 'tariff'
+    | 'location'
+    | 'token'
+    | 'credential'
+    | 'partner'
   topic: string
+  module?: string
+  direction?: 'INBOUND' | 'OUTBOUND'
   occurredAt: string
   partnerId: string
   requestId?: string
@@ -36,7 +85,48 @@ type PartnerRecentEvent = {
   eventType?: string
   responseUrl?: string
   sessionId?: string
+  cdrId?: string
+  tariffId?: string
+  locationId?: string
+  tokenUid?: string
+  tokenType?: string
+  evseUid?: string
+  connectorId?: string
+  status?: string
   message?: string
+}
+
+type RecordModuleEventArgs = {
+  event: OcpiEvent
+  topic: string
+  kind:
+    | 'chargingprofile'
+    | 'session'
+    | 'cdr'
+    | 'tariff'
+    | 'location'
+    | 'token'
+    | 'credential'
+    | 'partner'
+  counter: CounterMetric
+  lastField:
+    | 'lastChargingProfileEventAt'
+    | 'lastSessionEventAt'
+    | 'lastCdrEventAt'
+    | 'lastTariffEventAt'
+    | 'lastLocationEventAt'
+    | 'lastTokenEventAt'
+    | 'lastCredentialEventAt'
+    | 'lastPartnerEventAt'
+  latestTypeField:
+    | 'latestChargingProfileEventType'
+    | 'latestSessionEventType'
+    | 'latestCdrEventType'
+    | 'latestTariffEventType'
+    | 'latestLocationEventType'
+    | 'latestTokenEventType'
+    | 'latestCredentialEventType'
+    | 'latestPartnerEventType'
 }
 
 @Injectable()
@@ -59,7 +149,98 @@ export class PartnerObservabilityService {
     }
 
     if (topic === KAFKA_TOPICS.ocpiChargingProfileEvents) {
-      await this.recordChargingProfileEvent(parsed as unknown as OcpiEvent)
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'chargingprofile',
+        counter: 'chargingProfileEvents',
+        lastField: 'lastChargingProfileEventAt',
+        latestTypeField: 'latestChargingProfileEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiSessionEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'session',
+        counter: 'sessionEvents',
+        lastField: 'lastSessionEventAt',
+        latestTypeField: 'latestSessionEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiCdrEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'cdr',
+        counter: 'cdrEvents',
+        lastField: 'lastCdrEventAt',
+        latestTypeField: 'latestCdrEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiTariffEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'tariff',
+        counter: 'tariffEvents',
+        lastField: 'lastTariffEventAt',
+        latestTypeField: 'latestTariffEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiLocationEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'location',
+        counter: 'locationEvents',
+        lastField: 'lastLocationEventAt',
+        latestTypeField: 'latestLocationEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiTokenEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'token',
+        counter: 'tokenEvents',
+        lastField: 'lastTokenEventAt',
+        latestTypeField: 'latestTokenEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiCredentialEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'credential',
+        counter: 'credentialEvents',
+        lastField: 'lastCredentialEventAt',
+        latestTypeField: 'latestCredentialEventType',
+      })
+      return
+    }
+
+    if (topic === KAFKA_TOPICS.ocpiPartnerEvents) {
+      await this.recordModuleEvent({
+        event: parsed as unknown as OcpiEvent,
+        topic,
+        kind: 'partner',
+        counter: 'partnerEvents',
+        lastField: 'lastPartnerEventAt',
+        latestTypeField: 'latestPartnerEventType',
+      })
     }
   }
 
@@ -110,6 +291,8 @@ export class PartnerObservabilityService {
     await this.appendRecentEvent(partnerId, {
       kind: 'command.request',
       topic: KAFKA_TOPICS.ocpiCommandRequests,
+      module: 'commands',
+      direction: 'INBOUND',
       occurredAt,
       partnerId,
       requestId: event.requestId,
@@ -136,6 +319,8 @@ export class PartnerObservabilityService {
     await this.appendRecentEvent(partnerId, {
       kind: 'command.result',
       topic: KAFKA_TOPICS.ocpiCommandEvents,
+      module: 'commands',
+      direction: 'OUTBOUND',
       occurredAt,
       partnerId,
       requestId: event.requestId,
@@ -145,27 +330,37 @@ export class PartnerObservabilityService {
     })
   }
 
-  private async recordChargingProfileEvent(event: OcpiEvent): Promise<void> {
-    const partnerId = this.normalizePartnerId(event.partnerId)
-    const occurredAt = this.normalizeTimestamp(event.occurredAt)
-    const payload = this.ensureRecord(event.payload)
+  private async recordModuleEvent(args: RecordModuleEventArgs): Promise<void> {
+    const partnerId = this.normalizePartnerId(args.event.partnerId)
+    const occurredAt = this.normalizeTimestamp(args.event.occurredAt)
+    const payload = this.ensureRecord(args.event.payload)
 
     await this.ensurePartnerTracked(partnerId)
-    await this.incrementCounter(partnerId, 'chargingProfileEvents')
+    await this.incrementCounter(partnerId, args.counter)
     await this.updateSummaryFields(partnerId, {
       lastActivityAt: occurredAt,
-      lastChargingProfileEventAt: occurredAt,
-      latestChargingProfileEventType: event.eventType || null,
+      [args.lastField]: occurredAt,
+      [args.latestTypeField]: args.event.eventType || null,
     })
     await this.appendRecentEvent(partnerId, {
-      kind: 'chargingprofile',
-      topic: KAFKA_TOPICS.ocpiChargingProfileEvents,
+      kind: args.kind,
+      topic: args.topic,
+      module: args.event.module,
+      direction: args.event.direction,
       occurredAt,
       partnerId,
-      correlationId: event.correlationId,
+      correlationId: args.event.correlationId,
       requestId: this.extractString(payload.requestId),
-      eventType: event.eventType,
+      eventType: args.event.eventType,
       sessionId: this.extractString(payload.sessionId),
+      cdrId: this.extractString(payload.cdrId),
+      tariffId: this.extractString(payload.tariffId),
+      locationId: this.extractString(payload.locationId),
+      tokenUid: this.extractString(payload.tokenUid),
+      tokenType: this.extractString(payload.tokenType),
+      evseUid: this.extractString(payload.evseUid),
+      connectorId: this.extractString(payload.connectorId),
+      status: this.extractString(payload.status),
       message: this.extractMessage(payload),
     })
   }
@@ -174,17 +369,7 @@ export class PartnerObservabilityService {
     await this.redis.getClient().sadd(this.partnersKey(), partnerId)
   }
 
-  private async incrementCounter(
-    partnerId: string,
-    metric:
-      | 'commandRequests'
-      | 'commandResults'
-      | 'commandAccepted'
-      | 'commandRejected'
-      | 'commandFailed'
-      | 'commandTimeout'
-      | 'chargingProfileEvents'
-  ): Promise<void> {
+  private async incrementCounter(partnerId: string, metric: CounterMetric): Promise<void> {
     await this.redis.getClient().hincrby(this.summaryKey(partnerId), metric, 1)
   }
 
@@ -199,10 +384,7 @@ export class PartnerObservabilityService {
     await this.redis.getClient().hset(this.summaryKey(partnerId), payload)
   }
 
-  private async appendRecentEvent(
-    partnerId: string,
-    event: PartnerRecentEvent
-  ): Promise<void> {
+  private async appendRecentEvent(partnerId: string, event: PartnerRecentEvent): Promise<void> {
     const client = this.redis.getClient()
     await client.lpush(this.recentEventsKey(partnerId), JSON.stringify(event))
     await client.ltrim(this.recentEventsKey(partnerId), 0, this.recentEventLimit() - 1)
@@ -216,9 +398,23 @@ export class PartnerObservabilityService {
       lastCommandRequestAt: this.parseNullableString(raw.lastCommandRequestAt),
       lastCommandResultAt: this.parseNullableString(raw.lastCommandResultAt),
       lastChargingProfileEventAt: this.parseNullableString(raw.lastChargingProfileEventAt),
+      lastSessionEventAt: this.parseNullableString(raw.lastSessionEventAt),
+      lastCdrEventAt: this.parseNullableString(raw.lastCdrEventAt),
+      lastTariffEventAt: this.parseNullableString(raw.lastTariffEventAt),
+      lastLocationEventAt: this.parseNullableString(raw.lastLocationEventAt),
+      lastTokenEventAt: this.parseNullableString(raw.lastTokenEventAt),
+      lastCredentialEventAt: this.parseNullableString(raw.lastCredentialEventAt),
+      lastPartnerEventAt: this.parseNullableString(raw.lastPartnerEventAt),
       latestCommand: this.parseNullableString(raw.latestCommand),
       latestCommandResult: this.parseNullableString(raw.latestCommandResult),
       latestChargingProfileEventType: this.parseNullableString(raw.latestChargingProfileEventType),
+      latestSessionEventType: this.parseNullableString(raw.latestSessionEventType),
+      latestCdrEventType: this.parseNullableString(raw.latestCdrEventType),
+      latestTariffEventType: this.parseNullableString(raw.latestTariffEventType),
+      latestLocationEventType: this.parseNullableString(raw.latestLocationEventType),
+      latestTokenEventType: this.parseNullableString(raw.latestTokenEventType),
+      latestCredentialEventType: this.parseNullableString(raw.latestCredentialEventType),
+      latestPartnerEventType: this.parseNullableString(raw.latestPartnerEventType),
       counts: {
         commandRequests: this.parseCount(raw.commandRequests),
         commandResults: this.parseCount(raw.commandResults),
@@ -227,6 +423,13 @@ export class PartnerObservabilityService {
         commandFailed: this.parseCount(raw.commandFailed),
         commandTimeout: this.parseCount(raw.commandTimeout),
         chargingProfileEvents: this.parseCount(raw.chargingProfileEvents),
+        sessionEvents: this.parseCount(raw.sessionEvents),
+        cdrEvents: this.parseCount(raw.cdrEvents),
+        tariffEvents: this.parseCount(raw.tariffEvents),
+        locationEvents: this.parseCount(raw.locationEvents),
+        tokenEvents: this.parseCount(raw.tokenEvents),
+        credentialEvents: this.parseCount(raw.credentialEvents),
+        partnerEvents: this.parseCount(raw.partnerEvents),
       },
     }
   }

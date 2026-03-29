@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     } as never,
     new ConfigService({
       observability: {
-        partnerRecentEventLimit: 2,
+        partnerRecentEventLimit: 5,
       },
     })
   )
@@ -125,6 +125,126 @@ async function main(): Promise<void> {
     })
   )
 
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiSessionEvents,
+    JSON.stringify({
+      eventId: 'evt-2',
+      eventType: 'ocpi.session.import.upsert',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:02:00.000Z',
+      correlationId: 'req-3',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'sessions',
+      direction: 'INBOUND',
+      payload: {
+        requestId: 'req-3',
+        sessionId: 'sess-1',
+        status: 'ACTIVE',
+      },
+    })
+  )
+
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiTariffEvents,
+    JSON.stringify({
+      eventId: 'evt-3',
+      eventType: 'ocpi.tariff.export.list',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:03:00.000Z',
+      correlationId: 'req-4',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'tariffs',
+      direction: 'OUTBOUND',
+      payload: {
+        requestId: 'req-4',
+        count: 2,
+      },
+    })
+  )
+
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiLocationEvents,
+    JSON.stringify({
+      eventId: 'evt-4',
+      eventType: 'ocpi.location.import.patch',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:04:00.000Z',
+      correlationId: 'req-5',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'locations',
+      direction: 'INBOUND',
+      payload: {
+        requestId: 'req-5',
+        locationId: 'LOC-1',
+        evseUid: 'EVSE-1',
+        connectorId: '1',
+      },
+    })
+  )
+
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiTokenEvents,
+    JSON.stringify({
+      eventId: 'evt-5',
+      eventType: 'ocpi.token.authorize.result',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:05:00.000Z',
+      correlationId: 'req-6',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'tokens',
+      direction: 'INBOUND',
+      payload: {
+        requestId: 'req-6',
+        tokenUid: 'tok-1',
+        tokenType: 'RFID',
+        allowed: 'ALLOWED',
+      },
+    })
+  )
+
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiCredentialEvents,
+    JSON.stringify({
+      eventId: 'evt-6',
+      eventType: 'ocpi.credentials.update',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:06:00.000Z',
+      correlationId: 'req-7',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'credentials',
+      direction: 'INBOUND',
+      payload: {
+        requestId: 'req-7',
+        discoveredVersion: '2.2.1',
+      },
+    })
+  )
+
+  await service.ingestMessage(
+    KAFKA_TOPICS.ocpiPartnerEvents,
+    JSON.stringify({
+      eventId: 'evt-7',
+      eventType: 'ocpi.partner.credentials.update',
+      source: 'ocpi-gateway',
+      occurredAt: '2026-03-30T08:07:00.000Z',
+      correlationId: 'req-8',
+      partnerId: 'partner-1',
+      role: 'emsp',
+      module: 'partners',
+      direction: 'INBOUND',
+      payload: {
+        requestId: 'req-8',
+        status: 'ACTIVE',
+        source: 'credentials',
+      },
+    })
+  )
+
   const overview = await service.listPartnerObservability()
   assert(overview.length === 1, 'expected one partner overview entry')
   assert(overview[0]?.partnerId === 'partner-1', 'expected partner-1 in overview')
@@ -135,20 +255,62 @@ async function main(): Promise<void> {
     overview[0]?.counts.chargingProfileEvents === 1,
     'expected one charging profile event'
   )
+  assert(overview[0]?.counts.sessionEvents === 1, 'expected one session event')
+  assert(overview[0]?.counts.tariffEvents === 1, 'expected one tariff event')
+  assert(overview[0]?.counts.locationEvents === 1, 'expected one location event')
+  assert(overview[0]?.counts.tokenEvents === 1, 'expected one token event')
+  assert(overview[0]?.counts.credentialEvents === 1, 'expected one credential event')
+  assert(overview[0]?.counts.partnerEvents === 1, 'expected one partner event')
   assert(
     overview[0]?.latestChargingProfileEventType === 'ocpi.chargingprofile.result',
     'expected latest charging profile event type'
   )
-
-  const detail = await service.getPartnerObservability('partner-1', 2)
-  assert(detail.recentEvents.length === 2, 'expected recent events to be trimmed to limit')
   assert(
-    detail.recentEvents[0]?.kind === 'chargingprofile',
-    'expected most recent event to be chargingprofile'
+    overview[0]?.latestSessionEventType === 'ocpi.session.import.upsert',
+    'expected latest session event type'
   )
   assert(
-    detail.recentEvents[1]?.kind === 'command.result',
-    'expected second most recent event to be command.result'
+    overview[0]?.latestTariffEventType === 'ocpi.tariff.export.list',
+    'expected latest tariff event type'
+  )
+  assert(
+    overview[0]?.latestLocationEventType === 'ocpi.location.import.patch',
+    'expected latest location event type'
+  )
+  assert(
+    overview[0]?.latestTokenEventType === 'ocpi.token.authorize.result',
+    'expected latest token event type'
+  )
+  assert(
+    overview[0]?.latestCredentialEventType === 'ocpi.credentials.update',
+    'expected latest credential event type'
+  )
+  assert(
+    overview[0]?.latestPartnerEventType === 'ocpi.partner.credentials.update',
+    'expected latest partner event type'
+  )
+
+  const detail = await service.getPartnerObservability('partner-1', 5)
+  assert(detail.recentEvents.length === 5, 'expected recent events to be trimmed to limit')
+  assert(
+    detail.recentEvents[0]?.kind === 'partner',
+    'expected most recent event to be partner'
+  )
+  assert(
+    detail.recentEvents[1]?.kind === 'credential',
+    'expected second most recent event to be credential'
+  )
+  assert(
+    detail.recentEvents[2]?.kind === 'token',
+    'expected third most recent event to be token'
+  )
+  assert(
+    detail.recentEvents[3]?.kind === 'location',
+    'expected fourth most recent event to be location'
+  )
+  assert(
+    detail.recentEvents[4]?.kind === 'tariff',
+    'expected fifth most recent event to be tariff'
   )
 
   console.log(JSON.stringify({ status: 'ok', test: 'partner-observability-selftest' }))

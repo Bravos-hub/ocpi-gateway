@@ -22,7 +22,14 @@ export class CdrsController {
 
   @Post(':role/2.2.1/cdrs')
   async createV221(@Body() body: Record<string, unknown>, @Res({ passthrough: true }) res: Response) {
-    const created = await this.cdrs.createCdr({ version: '2.2.1', data: body })
+    const created = await this.cdrs.createCdr({
+      version: '2.2.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      data: body,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const id =
       (body as { id?: string; cdr_id?: string }).id ||
       (body as { id?: string; cdr_id?: string }).cdr_id
@@ -34,7 +41,14 @@ export class CdrsController {
 
   @Post(':role/2.1.1/cdrs')
   async createV211(@Body() body: Record<string, unknown>, @Res({ passthrough: true }) res: Response) {
-    const created = await this.cdrs.createCdr({ version: '2.1.1', data: body })
+    const created = await this.cdrs.createCdr({
+      version: '2.1.1',
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      data: body,
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const id =
       (body as { id?: string; cdr_id?: string }).id ||
       (body as { id?: string; cdr_id?: string }).cdr_id
@@ -46,7 +60,12 @@ export class CdrsController {
 
   @Get(':role/2.2.1/cdrs')
   async listV221(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.cdrs.listCdrs()
+    const data = await this.cdrs.listCdrs({
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -58,7 +77,12 @@ export class CdrsController {
 
   @Get(':role/2.1.1/cdrs')
   async listV211(@Res({ passthrough: true }) res: Response, @Query() _query: any) {
-    const data = await this.cdrs.listCdrs()
+    const data = await this.cdrs.listCdrs({
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     const paginated = paginateOcpiList(
       res.req,
       res,
@@ -70,7 +94,13 @@ export class CdrsController {
 
   @Get(':role/2.2.1/cdrs/:cdrId')
   async getV221(@Param('cdrId') cdrId: string, @Res({ passthrough: true }) res: Response) {
-    const data = await this.cdrs.getCdr(cdrId)
+    const data = await this.cdrs.getCdr({
+      id: cdrId,
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     if (!data) {
       const payload = ocpiError(2001, 'Invalid or missing parameters')
       res.status(httpStatusForOcpiCode(payload.status_code, HttpStatus.NOT_FOUND))
@@ -81,7 +111,13 @@ export class CdrsController {
 
   @Get(':role/2.1.1/cdrs/:cdrId')
   async getV211(@Param('cdrId') cdrId: string, @Res({ passthrough: true }) res: Response) {
-    const data = await this.cdrs.getCdr(cdrId)
+    const data = await this.cdrs.getCdr({
+      id: cdrId,
+      role: `${res.req.params.role || ''}`.toLowerCase(),
+      partnerId: res.req.ocpiAuth?.partner?.id,
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     if (!data) {
       const payload = ocpiError(2001, 'Invalid or missing parameters')
       res.status(httpStatusForOcpiCode(payload.status_code, HttpStatus.NOT_FOUND))
