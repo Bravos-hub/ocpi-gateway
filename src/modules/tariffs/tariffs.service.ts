@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 @Injectable()
@@ -8,17 +9,79 @@ export class TariffsService {
   constructor(
     private readonly backend: EvzoneApiService,
     private readonly config: ConfigService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
-  async getTariffs(version: '2.2.1' | '2.1.1') {
-    const response = await this.backend.get<any>('/internal/ocpi/tariffs')
-    const items = Array.isArray(response) ? response : response?.data || []
-    return items.map((item: any) => this.normalizeTariff(item, version))
+  async getTariffs(args: {
+    version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
+    const items = await this.fetchTariffs()
+    const data = items.map((item: any) => this.normalizeTariff(item, args.version))
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishTariffEvent({
+      eventType: 'ocpi.tariff.export.list',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        count: data.length,
+      },
+      key: args.requestId,
+    })
+
+    return data
+  }
+
+  async getTariff(args: {
+    version: '2.2.1' | '2.1.1'
+    tariffId: string
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
+    const items = await this.fetchTariffs()
+    const data =
+      items
+        .map((item: any) => this.normalizeTariff(item, args.version))
+        .find((tariff: unknown) => (tariff as { id?: string }).id === args.tariffId) || null
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishTariffEvent({
+      eventType: 'ocpi.tariff.export.detail',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        tariffId: args.tariffId,
+        found: !!data,
+      },
+      key: args.requestId || args.tariffId,
+    })
+
+    return data
   }
 
   async upsertPartnerTariff(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
     countryCode: string
     partyId: string
     tariffId: string
@@ -39,7 +102,7 @@ export class TariffsService {
       return { duplicated: true }
     }
 
-    return this.backend.post('/internal/ocpi/partner-tariffs', {
+    const response = await this.backend.post('/internal/ocpi/partner-tariffs', {
       countryCode: args.countryCode,
       partyId: args.partyId,
       tariffId: args.tariffId,
@@ -47,21 +110,70 @@ export class TariffsService {
       data: args.data,
       lastUpdated,
     })
+
+    void this.events.publishTariffEvent({
+      eventType: 'ocpi.tariff.import.upsert',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      countryCode: args.countryCode,
+      partyId: args.partyId,
+      occurredAt: lastUpdated,
+      payload: {
+        version: args.version,
+        tariffId: args.tariffId,
+        currency: this.extractString(args.data, 'currency'),
+      },
+      key: args.requestId || args.tariffId,
+    })
+
+    return response
   }
 
   async deletePartnerTariff(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
     countryCode: string
     partyId: string
     tariffId: string
   }) {
-    return this.backend.post('/internal/ocpi/partner-tariffs/delete', {
+    const deletedAt = new Date().toISOString()
+    const response = await this.backend.post('/internal/ocpi/partner-tariffs/delete', {
       version: args.version,
       countryCode: args.countryCode,
       partyId: args.partyId,
       tariffId: args.tariffId,
-      deletedAt: new Date().toISOString(),
+      deletedAt,
     })
+
+    void this.events.publishTariffEvent({
+      eventType: 'ocpi.tariff.import.delete',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      countryCode: args.countryCode,
+      partyId: args.partyId,
+      occurredAt: deletedAt,
+      payload: {
+        version: args.version,
+        tariffId: args.tariffId,
+      },
+      key: args.requestId || args.tariffId,
+    })
+
+    return response
+  }
+
+  private async fetchTariffs() {
+    const response = await this.backend.get<any>('/internal/ocpi/tariffs')
+    return Array.isArray(response) ? response : response?.data || []
   }
 
   private normalizeTariff(raw: any, version: '2.2.1' | '2.1.1') {
@@ -90,5 +202,10 @@ export class TariffsService {
     }
 
     return tariff
+  }
+
+  private extractString(record: Record<string, unknown>, key: string): string | undefined {
+    const value = record[key]
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 const COMMAND_TYPES = new Set([
@@ -14,6 +15,7 @@ const COMMAND_TYPES = new Set([
 export class CommandsService {
   constructor(
     private readonly backend: EvzoneApiService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
@@ -44,6 +46,7 @@ export class CommandsService {
       return { result: 'ACCEPTED' }
     }
 
+    const requestedAt = new Date().toISOString()
     const response = await this.backend.post<any>('/internal/ocpi/commands/requests', {
       version: args.version,
       role: args.role,
@@ -52,7 +55,18 @@ export class CommandsService {
       requestId: args.requestId,
       correlationId: args.correlationId,
       partnerId: args.partnerId || null,
-      requestedAt: new Date().toISOString(),
+      requestedAt,
+    })
+
+    void this.events.publishCommandRequest({
+      requestId: args.requestId,
+      partnerId: args.partnerId,
+      command,
+      responseUrl: (args.request as { response_url?: string; responseUrl?: string }).response_url ||
+        (args.request as { response_url?: string; responseUrl?: string }).responseUrl ||
+        null,
+      payload: args.request,
+      requestedAt,
     })
 
     if (response && typeof response === 'object' && 'result' in response) {
@@ -85,7 +99,8 @@ export class CommandsService {
       return { duplicated: true }
     }
 
-    return this.backend.post('/internal/ocpi/commands/results', {
+    const occurredAt = new Date().toISOString()
+    const response = await this.backend.post('/internal/ocpi/commands/results', {
       version: args.version,
       role: args.role,
       command,
@@ -93,7 +108,25 @@ export class CommandsService {
       result: args.result,
       correlationId: args.correlationId,
       partnerId: args.partnerId || null,
-      occurredAt: new Date().toISOString(),
+      occurredAt,
     })
+
+    void this.events.publishCommandResult({
+      requestId: args.requestId,
+      partnerId: args.partnerId,
+      command,
+      result: this.resolveResultStatus(args.result),
+      occurredAt,
+      payload: args.result,
+    })
+
+    return response
+  }
+
+  private resolveResultStatus(result: Record<string, unknown>): string {
+    const value = result.result
+    if (typeof value !== 'string') return 'UNKNOWN'
+    const normalized = value.trim().toUpperCase()
+    return normalized || 'UNKNOWN'
   }
 }

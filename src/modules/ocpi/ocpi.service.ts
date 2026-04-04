@@ -9,6 +9,7 @@ import {
   OCPI_STATUS_CODES,
   type OcpiVersion,
 } from './core/constants'
+import { OcpiEventPublisherService } from './core/ocpi-event-publisher.service'
 import { ocpiError, ocpiSuccess, type OcpiEnvelope } from './core/ocpi-response'
 import { OcpiTokenCodecService } from './core/ocpi-token-codec.service'
 
@@ -18,6 +19,9 @@ type PartnerRecord = {
   id: string
   tokenC?: string | null
   status?: string | null
+  role?: string | null
+  partyId?: string | null
+  countryCode?: string | null
 }
 
 type VersionEndpoint = {
@@ -43,11 +47,17 @@ type CredentialsResult = {
   payload: OcpiEnvelope
 }
 
+type RequestContextArgs = {
+  requestId?: string
+  correlationId?: string
+}
+
 @Injectable()
 export class OcpiService {
   constructor(
     private readonly config: ConfigService,
     private readonly partners: PartnersService,
+    private readonly events: OcpiEventPublisherService,
     private readonly tokenCodec: OcpiTokenCodecService
   ) {}
 
@@ -80,9 +90,11 @@ export class OcpiService {
   }
 
   async handleCredentialsPost(
+    version: OcpiVersion,
     role: string,
     authorization: string | undefined,
-    dto: CredentialsDto
+    dto: CredentialsDto,
+    context?: RequestContextArgs
   ): Promise<CredentialsResult> {
     const normalizedRole = this.normalizeRole(role)
     if (!normalizedRole) {
@@ -146,14 +158,38 @@ export class OcpiService {
       roles: dto.roles || null,
       endpoints: capabilities.endpoints,
       version: capabilities.version,
+      requestId: context?.requestId,
+      correlationId: context?.correlationId,
+    })
+
+    void this.events.publishCredentialEvent({
+      eventType: 'ocpi.credentials.register',
+      role: normalizedRole,
+      direction: 'INBOUND',
+      partnerId: partnerMatch.partner.id,
+      correlationId: context?.correlationId,
+      requestId: context?.requestId,
+      countryCode,
+      partyId,
+      occurredAt: new Date().toISOString(),
+      payload: {
+        routeVersion: version,
+        discoveredVersion: capabilities.version,
+        endpointCount: capabilities.endpoints.length,
+        remoteRole: partnerRole,
+        versionsUrl: dto.url,
+      },
+      key: context?.requestId || partnerMatch.partner.id,
     })
 
     return { httpStatus: 200, payload: this.credentialsResponse(normalizedRole, tokenC) }
   }
 
   async handleCredentialsGet(
+    version: OcpiVersion,
     role: string,
-    authorization: string | undefined
+    authorization: string | undefined,
+    context?: RequestContextArgs
   ): Promise<CredentialsResult> {
     const normalizedRole = this.normalizeRole(role)
     if (!normalizedRole) {
@@ -172,6 +208,23 @@ export class OcpiService {
     }
 
     const activeToken = partnerMatch.partner.tokenC || partnerMatch.token
+    void this.events.publishCredentialEvent({
+      eventType: 'ocpi.credentials.fetch',
+      role: normalizedRole,
+      direction: 'INBOUND',
+      partnerId: partnerMatch.partner.id,
+      correlationId: context?.correlationId,
+      requestId: context?.requestId,
+      countryCode: partnerMatch.partner.countryCode || undefined,
+      partyId: partnerMatch.partner.partyId || undefined,
+      occurredAt: new Date().toISOString(),
+      payload: {
+        routeVersion: version,
+        hasTokenC: !!partnerMatch.partner.tokenC,
+      },
+      key: context?.requestId || partnerMatch.partner.id,
+    })
+
     return {
       httpStatus: 200,
       payload: this.credentialsResponse(normalizedRole, activeToken),
@@ -179,9 +232,11 @@ export class OcpiService {
   }
 
   async handleCredentialsPut(
+    version: OcpiVersion,
     role: string,
     authorization: string | undefined,
-    dto: CredentialsDto
+    dto: CredentialsDto,
+    context?: RequestContextArgs
   ): Promise<CredentialsResult> {
     const normalizedRole = this.normalizeRole(role)
     if (!normalizedRole) {
@@ -220,6 +275,35 @@ export class OcpiService {
       endpoints: capabilities.endpoints,
       roles: dto.roles || null,
       lastSyncAt: new Date().toISOString(),
+    }, {
+      eventType: 'ocpi.partner.credentials.update',
+      requestId: context?.requestId,
+      correlationId: context?.correlationId,
+      role: normalizedRole,
+      payload: {
+        source: 'credentials',
+        discoveredVersion: capabilities.version,
+        endpointCount: capabilities.endpoints.length,
+      },
+    })
+
+    void this.events.publishCredentialEvent({
+      eventType: 'ocpi.credentials.update',
+      role: normalizedRole,
+      direction: 'INBOUND',
+      partnerId: partnerMatch.partner.id,
+      correlationId: context?.correlationId,
+      requestId: context?.requestId,
+      countryCode: this.getCountryCode(dto) || partnerMatch.partner.countryCode || undefined,
+      partyId: this.getPartyId(dto) || partnerMatch.partner.partyId || undefined,
+      occurredAt: new Date().toISOString(),
+      payload: {
+        routeVersion: version,
+        discoveredVersion: capabilities.version,
+        endpointCount: capabilities.endpoints.length,
+        versionsUrl: dto.url,
+      },
+      key: context?.requestId || partnerMatch.partner.id,
     })
 
     return {
@@ -229,8 +313,10 @@ export class OcpiService {
   }
 
   async handleCredentialsDelete(
+    version: OcpiVersion,
     role: string,
-    authorization: string | undefined
+    authorization: string | undefined,
+    context?: RequestContextArgs
   ): Promise<CredentialsResult> {
     const normalizedRole = this.normalizeRole(role)
     if (!normalizedRole) {
@@ -251,7 +337,31 @@ export class OcpiService {
       }
     }
 
-    await this.partners.suspend(partnerMatch.partner.id)
+    await this.partners.suspend(partnerMatch.partner.id, {
+      eventType: 'ocpi.partner.credentials.suspend',
+      requestId: context?.requestId,
+      correlationId: context?.correlationId,
+      role: normalizedRole,
+      payload: {
+        source: 'credentials',
+      },
+    })
+
+    void this.events.publishCredentialEvent({
+      eventType: 'ocpi.credentials.delete',
+      role: normalizedRole,
+      direction: 'INBOUND',
+      partnerId: partnerMatch.partner.id,
+      correlationId: context?.correlationId,
+      requestId: context?.requestId,
+      countryCode: partnerMatch.partner.countryCode || undefined,
+      partyId: partnerMatch.partner.partyId || undefined,
+      occurredAt: new Date().toISOString(),
+      payload: {
+        routeVersion: version,
+      },
+      key: context?.requestId || partnerMatch.partner.id,
+    })
     return { httpStatus: 200, payload: ocpiSuccess(null) }
   }
 

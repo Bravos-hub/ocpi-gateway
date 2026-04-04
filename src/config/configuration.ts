@@ -35,6 +35,13 @@ export default () => ({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
     prefix: process.env.REDIS_PREFIX || 'ocpi',
   },
+  observability: {
+    partnerMonitoringEnabled:
+      (process.env.OCPI_PARTNER_MONITORING_ENABLED || 'true').trim().toLowerCase() === 'true',
+    partnerMonitoringGroupId:
+      process.env.OCPI_PARTNER_MONITORING_GROUP_ID || 'ocpi-gateway-partner-observability',
+    partnerRecentEventLimit: parseInt(process.env.OCPI_PARTNER_RECENT_EVENT_LIMIT || '25', 10),
+  },
   backend: {
     baseUrl: process.env.EVZONE_BACKEND_URL || '',
     apiPrefix: process.env.EVZONE_BACKEND_API_PREFIX || '/api/v1',

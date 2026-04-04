@@ -64,7 +64,10 @@ export class OcpiController {
     @Body() dto: CredentialsDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsPost(role, authorization, dto)
+    const result = await this.ocpi.handleCredentialsPost('2.2.1', role, authorization, dto, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -75,7 +78,10 @@ export class OcpiController {
     @Headers('authorization') authorization: string | undefined,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsGet(role, authorization)
+    const result = await this.ocpi.handleCredentialsGet('2.2.1', role, authorization, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -87,7 +93,10 @@ export class OcpiController {
     @Body() dto: CredentialsDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsPut(role, authorization, dto)
+    const result = await this.ocpi.handleCredentialsPut('2.2.1', role, authorization, dto, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -98,7 +107,10 @@ export class OcpiController {
     @Headers('authorization') authorization: string | undefined,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsDelete(role, authorization)
+    const result = await this.ocpi.handleCredentialsDelete('2.2.1', role, authorization, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -110,7 +122,10 @@ export class OcpiController {
     @Body() dto: CredentialsDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsPost(role, authorization, dto)
+    const result = await this.ocpi.handleCredentialsPost('2.1.1', role, authorization, dto, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -121,7 +136,10 @@ export class OcpiController {
     @Headers('authorization') authorization: string | undefined,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsGet(role, authorization)
+    const result = await this.ocpi.handleCredentialsGet('2.1.1', role, authorization, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -133,7 +151,10 @@ export class OcpiController {
     @Body() dto: CredentialsDto,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsPut(role, authorization, dto)
+    const result = await this.ocpi.handleCredentialsPut('2.1.1', role, authorization, dto, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }
@@ -144,7 +165,10 @@ export class OcpiController {
     @Headers('authorization') authorization: string | undefined,
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.ocpi.handleCredentialsDelete(role, authorization)
+    const result = await this.ocpi.handleCredentialsDelete('2.1.1', role, authorization, {
+      requestId: res.req.ocpiContext?.requestId,
+      correlationId: res.req.ocpiContext?.correlationId,
+    })
     res.status(result.httpStatus)
     return result.payload
   }

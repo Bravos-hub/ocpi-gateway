@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 type BackendStation = {
@@ -28,6 +29,7 @@ export class LocationsService {
   constructor(
     private readonly backend: EvzoneApiService,
     private readonly config: ConfigService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
@@ -42,22 +44,72 @@ export class LocationsService {
     return this.toOcpiLocation(station, '2.2.1')
   }
 
-  async getLocationsForVersion(version: '2.2.1' | '2.1.1'): Promise<OcpiLocation[]> {
+  async getLocationsForVersion(args: {
+    version: '2.2.1' | '2.1.1'
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }): Promise<OcpiLocation[]> {
     const stations = await this.backend.get<BackendStation[]>('/internal/ocpi/locations')
-    return stations.map((station) => this.toOcpiLocation(station, version))
+    const data = stations.map((station) => this.toOcpiLocation(station, args.version))
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishLocationEvent({
+      eventType: 'ocpi.location.export.list',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        count: data.length,
+      },
+      key: args.requestId,
+    })
+
+    return data
   }
 
   async getLocationForVersion(
-    id: string,
-    version: '2.2.1' | '2.1.1'
+    args: {
+      id: string
+      version: '2.2.1' | '2.1.1'
+      role: string
+      partnerId?: string
+      requestId?: string
+      correlationId?: string
+    }
   ): Promise<OcpiLocation | null> {
+    const { id, version } = args
     const station = await this.backend.get<BackendStation | null>(`/internal/ocpi/locations/${id}`)
-    if (!station) return null
-    return this.toOcpiLocation(station, version)
+    const data = station ? this.toOcpiLocation(station, version) : null
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishLocationEvent({
+      eventType: 'ocpi.location.export.detail',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        version: args.version,
+        locationId: id,
+        found: !!data,
+      },
+      key: args.requestId || id,
+    })
+
+    return data
   }
 
   async upsertPartnerLocation(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
     countryCode: string
     partyId: string
     locationId: string
@@ -65,6 +117,9 @@ export class LocationsService {
     connectorId?: string
     data: Record<string, unknown>
     isPatch: boolean
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
   }) {
     const objectType = args.connectorId
       ? 'CONNECTOR'
@@ -102,10 +157,34 @@ export class LocationsService {
       return { duplicated: true }
     }
 
+    let response: unknown
     if (args.isPatch) {
-      return this.backend.patch('/internal/ocpi/partner-locations', payload)
+      response = await this.backend.patch('/internal/ocpi/partner-locations', payload)
+    } else {
+      response = await this.backend.post('/internal/ocpi/partner-locations', payload)
     }
-    return this.backend.post('/internal/ocpi/partner-locations', payload)
+
+    void this.events.publishLocationEvent({
+      eventType: args.isPatch ? 'ocpi.location.import.patch' : 'ocpi.location.import.upsert',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      countryCode: args.countryCode,
+      partyId: args.partyId,
+      occurredAt: lastUpdated,
+      payload: {
+        version: args.version,
+        locationId: args.locationId,
+        evseUid: args.evseUid,
+        connectorId: args.connectorId,
+        objectType,
+      },
+      key: args.requestId || args.locationId,
+    })
+
+    return response
   }
 
   private toOcpiLocation(station: BackendStation, version: '2.2.1' | '2.1.1'): OcpiLocation {

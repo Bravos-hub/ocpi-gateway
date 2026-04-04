@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { EvzoneApiService } from '../../platform/evzone-api.service'
+import { OcpiEventPublisherService } from '../ocpi/core/ocpi-event-publisher.service'
 import { OcpiIdempotencyService } from '../ocpi/core/ocpi-idempotency.service'
 
 @Injectable()
@@ -8,12 +9,17 @@ export class CdrsService {
   constructor(
     private readonly backend: EvzoneApiService,
     private readonly config: ConfigService,
+    private readonly events: OcpiEventPublisherService,
     private readonly idempotency: OcpiIdempotencyService
   ) {}
 
   async createCdr(args: {
     version: '2.2.1' | '2.1.1'
+    role: string
     data: Record<string, unknown>
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
   }) {
     const countryCode =
       (args.data as { country_code?: string }).country_code ||
@@ -42,7 +48,7 @@ export class CdrsService {
       return { duplicated: true, cdrId }
     }
 
-    return this.backend.post('/internal/ocpi/cdrs', {
+    const response = await this.backend.post('/internal/ocpi/cdrs', {
       countryCode,
       partyId,
       cdrId,
@@ -50,16 +56,91 @@ export class CdrsService {
       data: args.data,
       lastUpdated,
     })
+
+    void this.events.publishCdrEvent({
+      eventType: 'ocpi.cdr.import.create',
+      role: args.role,
+      direction: 'INBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      countryCode,
+      partyId,
+      occurredAt: lastUpdated,
+      payload: {
+        version: args.version,
+        cdrId,
+        sessionId: this.extractString(args.data, 'session_id'),
+      },
+      key: args.requestId || cdrId,
+    })
+
+    return response
   }
 
-  async listCdrs() {
+  async listCdrs(args: {
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
     const response = await this.backend.get<any>('/internal/ocpi/cdrs')
-    return Array.isArray(response) ? response : response?.data || []
+    const data = Array.isArray(response) ? response : response?.data || []
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishCdrEvent({
+      eventType: 'ocpi.cdr.export.list',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        count: data.length,
+      },
+      key: args.requestId,
+    })
+
+    return data
   }
 
-  async getCdr(id: string) {
+  async getCdr(args: {
+    id: string
+    role: string
+    partnerId?: string
+    requestId?: string
+    correlationId?: string
+  }) {
+    const { id } = args
     const response = await this.backend.get<any>(`/internal/ocpi/cdrs/${id}`)
-    if (!response) return null
-    return Array.isArray(response) ? response[0] || null : response
+    const data = !response ? null : Array.isArray(response) ? response[0] || null : response
+    const occurredAt = new Date().toISOString()
+
+    void this.events.publishCdrEvent({
+      eventType: 'ocpi.cdr.export.detail',
+      role: args.role,
+      direction: 'OUTBOUND',
+      partnerId: args.partnerId,
+      correlationId: args.correlationId,
+      requestId: args.requestId,
+      occurredAt,
+      payload: {
+        cdrId: id,
+        sessionId: this.extractString(data, 'session_id'),
+        found: !!data,
+      },
+      key: args.requestId || id,
+    })
+
+    return data
+  }
+
+  private extractString(
+    record: Record<string, unknown> | null | undefined,
+    key: string
+  ): string | undefined {
+    const value = record?.[key]
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
   }
 }

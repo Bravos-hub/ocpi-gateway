@@ -46,6 +46,19 @@ export class EvzoneApiService {
     return Boolean(this.baseUrl && this.clientId && this.clientSecret)
   }
 
+  async checkConnection(): Promise<{ status: 'up' | 'down' | 'unconfigured'; error?: string }> {
+    if (!this.isEnabled()) {
+      return { status: 'unconfigured' }
+    }
+
+    try {
+      await this.getAccessToken()
+      return { status: 'up' }
+    } catch (error) {
+      return { status: 'down', error: (error as Error).message }
+    }
+  }
+
   async get<T>(path: string, params?: Record<string, unknown>) {
     return this.request<T>({ method: 'GET', url: this.withApiPrefix(path), params })
   }
